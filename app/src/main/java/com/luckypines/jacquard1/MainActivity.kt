@@ -1,10 +1,14 @@
 package com.luckypines.jacquard1
 
+import android.Manifest
 import android.bluetooth.BluetoothManager
 import android.content.Context
+import android.content.pm.PackageManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.luckypines.jacquardlib.JacquardGestureType
 import com.luckypines.jacquardlib.JacquardSnapTag
 import com.luckypines.jacquardlib.LedCommand
@@ -12,6 +16,8 @@ import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+
+private const val REQUEST_LOCATION_PERMISSION = 9001
 
 @ExperimentalUnsignedTypes
 class MainActivity : AppCompatActivity(),
@@ -44,8 +50,17 @@ class MainActivity : AppCompatActivity(),
 
   override fun onResume() {
     super.onResume()
-    GlobalScope.launch(Dispatchers.Main) {
-      jacquardSnapTag.connect(this@MainActivity)
+    if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+      == PackageManager.PERMISSION_GRANTED) {
+      GlobalScope.launch(Dispatchers.Main) {
+        jacquardSnapTag.connect(this@MainActivity)
+      }
+    } else {
+      ActivityCompat.requestPermissions(
+        this,
+        arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
+        REQUEST_LOCATION_PERMISSION
+      )
     }
   }
 
@@ -53,6 +68,20 @@ class MainActivity : AppCompatActivity(),
     super.onPause()
     GlobalScope.launch(Dispatchers.Main) {
       jacquardSnapTag.disconnect()
+    }
+  }
+
+  override fun onRequestPermissionsResult(
+    requestCode: Int,
+    permissions: Array<out String>,
+    grantResults: IntArray
+  ) {
+    super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    if (requestCode != REQUEST_LOCATION_PERMISSION) return
+    if (grantResults.size == 0) return
+    if (grantResults[0] != PackageManager.PERMISSION_GRANTED) return
+    GlobalScope.launch(Dispatchers.Main) {
+      jacquardSnapTag.connect(this@MainActivity)
     }
   }
 
