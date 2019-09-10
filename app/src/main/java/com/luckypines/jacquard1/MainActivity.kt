@@ -4,28 +4,30 @@ import android.Manifest
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.pm.PackageManager
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.util.Log
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import com.luckypines.jacquardlib.JacquardGestureType
 import com.luckypines.jacquardlib.JacquardSnapTag
 import com.luckypines.jacquardlib.LedCommand
 import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
+import kotlin.coroutines.CoroutineContext
 
 private const val REQUEST_LOCATION_PERMISSION = 9001
 
 @ExperimentalUnsignedTypes
 class MainActivity : AppCompatActivity(),
+  CoroutineScope,
   JacquardSnapTag.OnSnapTagConnectionStatusChangedListener,
-    JacquardSnapTag.OnGestureListener,
-    JacquardSnapTag.OnThreadListener {
+  JacquardSnapTag.OnGestureListener,
+  JacquardSnapTag.OnThreadListener {
 
+  private val job = SupervisorJob()
   private lateinit var jacquardSnapTag: JacquardSnapTag
+
+  override val coroutineContext: CoroutineContext
+    get() = Dispatchers.Main + job
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -48,11 +50,16 @@ class MainActivity : AppCompatActivity(),
     jacquardSnapTag.onThreadListener = this
   }
 
+  override fun onDestroy() {
+    coroutineContext.cancelChildren()
+    super.onDestroy()
+  }
+
   override fun onResume() {
     super.onResume()
     if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
       == PackageManager.PERMISSION_GRANTED) {
-      GlobalScope.launch(Dispatchers.Main) {
+      launch(Dispatchers.Main) {
         jacquardSnapTag.connect(this@MainActivity)
       }
     } else {
@@ -66,7 +73,7 @@ class MainActivity : AppCompatActivity(),
 
   override fun onPause() {
     super.onPause()
-    GlobalScope.launch(Dispatchers.Main) {
+    launch(Dispatchers.Main) {
       jacquardSnapTag.disconnect()
     }
   }
@@ -80,7 +87,7 @@ class MainActivity : AppCompatActivity(),
     if (requestCode != REQUEST_LOCATION_PERMISSION) return
     if (grantResults.size == 0) return
     if (grantResults[0] != PackageManager.PERMISSION_GRANTED) return
-    GlobalScope.launch(Dispatchers.Main) {
+    launch(Dispatchers.Main) {
       jacquardSnapTag.connect(this@MainActivity)
     }
   }
