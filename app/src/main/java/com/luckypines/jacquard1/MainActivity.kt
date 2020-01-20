@@ -1,5 +1,6 @@
 package com.luckypines.jacquard1
 
+import PresentationApiClient
 import android.Manifest
 import android.bluetooth.BluetoothManager
 import android.content.Context
@@ -14,6 +15,7 @@ import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.*
 import kotlin.coroutines.CoroutineContext
 
+
 private const val REQUEST_LOCATION_PERMISSION = 9001
 
 @ExperimentalUnsignedTypes
@@ -25,6 +27,7 @@ class MainActivity : AppCompatActivity(),
 
   private val job = SupervisorJob()
   private lateinit var jacquardSnapTag: JacquardSnapTag
+  private lateinit var apiClient: PresentationApiClient
 
   override val coroutineContext: CoroutineContext
     get() = Dispatchers.Main + job
@@ -48,6 +51,17 @@ class MainActivity : AppCompatActivity(),
     jacquardSnapTag.onSnapTagConnectionStateChangedListener = this
     jacquardSnapTag.onGestureListener = this
     jacquardSnapTag.onThreadListener = this
+
+//    val certInputStream = assets.open("cert.pem")
+    apiClient = PresentationApiClient()
+
+    statusText.setOnClickListener {
+      onGesture(JacquardGestureType.BRUSH_OUT)
+    }
+    statusText.setOnLongClickListener {
+      onGesture(JacquardGestureType.BRUSH_IN)
+      return@setOnLongClickListener true
+    }
   }
 
   override fun onDestroy() {
@@ -99,8 +113,23 @@ class MainActivity : AppCompatActivity(),
   }
 
   override fun onGesture(gesture: JacquardGestureType) {
+    val url = "http://${urlText.text}"
     runOnUiThread({
       gestureStatus.text = gesture.name
+      when(gesture) {
+        JacquardGestureType.BRUSH_OUT ->
+          launch(Dispatchers.IO) {
+            apiClient.call(url, "forward")
+          }
+        JacquardGestureType.BRUSH_IN ->
+          launch(Dispatchers.IO) {
+            apiClient.call(url, "back")
+          }
+        JacquardGestureType.DOUBLE_TAP ->
+          launch(Dispatchers.IO) {
+            apiClient.call(url, "start")
+          }
+      }
     })
   }
 
